@@ -3,6 +3,7 @@ import joblib
 import pandas as pd
 import random
 import json
+import os
 
 # Load model and score interpretation mapping
 model = joblib.load("credit_score_regressor.pkl")
@@ -101,4 +102,5 @@ with gr.Blocks() as demo:
     random_btn.click(fn=randomize_inputs, inputs=[], outputs=input_components)
 
 if __name__ == "__main__":
-    demo.launch()
+    port = int(os.environ.get("PORT", 7860))
+    demo.launch(server_name="0.0.0.0", server_port=port)
