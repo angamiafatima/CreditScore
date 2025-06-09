@@ -1,0 +1,32 @@
+[
+  {
+    "min_score": 300,
+    "max_score": 579,
+    "rating": "Poor",
+    "interpretation": "High risk of default"
+  },
+  {
+    "min_score": 580,
+    "max_score": 669,
+    "rating": "Fair",
+    "interpretation": "Subprime borrower, elevated risk"
+  },
+  {
+    "min_score": 670,
+    "max_score": 739,
+    "rating": "Good",
+    "interpretation": "Acceptable risk"
+  },
+  {
+    "min_score": 740,
+    "max_score": 799,
+    "rating": "Very Good",
+    "interpretation": "Low risk, favorable terms"
+  },
+  {
+    "min_score": 800,
+    "max_score": 850,
+    "rating": "Exceptional",
+    "interpretation": "Very low risk, best interest rates"
+  }
+]
