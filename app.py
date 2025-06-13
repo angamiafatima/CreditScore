@@ -1,106 +1,91 @@
-import gradio as gr
+import os
 import joblib
 import pandas as pd
-import random
 import json
-import os
+from fastapi import FastAPI
+from pydantic import BaseModel, Field
 
-# Load model and score interpretation mapping
+# Data Validation Model 
+# This class defines the structure and data types for the incoming API request.
+# It ensures that any data sent to your endpoint is valid before it's processed.
+# Field(...) is used for aliasing to match your model's column names.
+class CreditFeatures(BaseModel):
+    total_credits: float = Field(..., alias="Total_Credits")
+    total_debits: float = Field(..., alias="Total_Debits")
+    salary_total: float = Field(..., alias="Probable_Salary_Total")
+    savings_total: float = Field(..., alias="Transfers_To_Savings_Total")
+    fee_monthly: float = Field(..., alias="Fees_Monthly_Account_Total")
+    fee_service: float = Field(..., alias="Fees_Service_Charges_Total")
+    fee_penalty: float = Field(..., alias="Fees_Penalty_Interest_Total")
+    fee_unpaid: float = Field(..., alias="Fees_Unpaid_Item_Charges_Total")
+    fee_honouring: float = Field(..., alias="Fees_Honouring_Charges_Total")
+    days_below_zero: int = Field(..., alias="Days_Balance_Below_Zero")
+    min_balance: float = Field(..., alias="Min_Balance_Recorded")
+    max_balance: float = Field(..., alias="Max_Balance_Recorded")
+    net_income: float = Field(..., alias="Net_Income")
+    salary_ratio: float = Field(..., alias="Salary_Ratio")
+    savings_ratio: float = Field(..., alias="Savings_Ratio")
+    expense_ratio: float = Field(..., alias="Expense_Ratio")
+    balance_stability: float = Field(..., alias="Balance_Stability")
+    fees_total: float = Field(..., alias="Fees_Total")
+
+    class Config:
+        populate_by_name = True # Allows using either snake_case or the alias in requests
+
+# Application Setup 
+# Create the main FastAPI application instance
+app = FastAPI(
+    title="Credit Score Prediction API",
+    description="An API to predict credit scores based on financial metrics.",
+    version="1.0.0"
+)
+
+# Load Model and Interpretation Data 
+# These files are loaded once when the application starts up for efficiency.
 model = joblib.load("credit_score_regressor.pkl")
-
 with open("score_interpretation.json", "r") as f:
     score_map = json.load(f)
 
-# Find interpretation from numeric score
-def get_interpretation(score):
+# Helper function to find the interpretation for a given score
+def get_interpretation(score: float):
+    """Finds the rating and interpretation for a numeric score from the loaded map."""
     for entry in score_map:
         if entry["min_score"] <= score <= entry["max_score"]:
             return entry["rating"], entry["interpretation"]
-    return "Unknown", "No interpretation found"
+    return "Unknown", "No interpretation found for this score."
 
-# Prediction function
-def predict_score(
-    total_credits, total_debits, salary_total, savings_total,
-    fee_monthly, fee_service, fee_penalty, fee_unpaid, fee_honouring,
-    days_below_zero, min_balance, max_balance,
-    net_income, salary_ratio, savings_ratio, expense_ratio, balance_stability, fees_total
-):
-    features = pd.DataFrame([[  
-        total_credits, total_debits, salary_total, savings_total,
-        fee_monthly, fee_service, fee_penalty, fee_unpaid, fee_honouring,
-        days_below_zero, min_balance, max_balance,
-        net_income, salary_ratio, savings_ratio, expense_ratio, balance_stability, fees_total
-    ]], columns=[
-        "Total_Credits", "Total_Debits", "Probable_Salary_Total", "Transfers_To_Savings_Total",
-        "Fees_Monthly_Account_Total", "Fees_Service_Charges_Total", "Fees_Penalty_Interest_Total",
-        "Fees_Unpaid_Item_Charges_Total", "Fees_Honouring_Charges_Total", "Days_Balance_Below_Zero",
-        "Min_Balance_Recorded", "Max_Balance_Recorded", "Net_Income", "Salary_Ratio",
-        "Savings_Ratio", "Expense_Ratio", "Balance_Stability", "Fees_Total"
-    ])
-    score = model.predict(features)[0]
-    rating, interpretation = get_interpretation(score)
-    return f"Score: {round(score)}\nRating: {rating}\nInterpretation: {interpretation}"
+# API Endpoints 
+@app.get("/health", tags=["Health Check"], summary="Check if the API is running")
+def health_check():
+    """
+    A simple health check endpoint that Vertex AI or which ever hosting platform uses to verify
+    the application is live and ready to serve requests.
+    """
+    return {"status": "healthy"}
 
-# Randomizer
-def randomize_inputs():
-    return [
-        round(random.uniform(5000, 40000), 2),  # Total Credits
-        round(random.uniform(1000, 39000), 2),  # Total Debits
-        round(random.uniform(3000, 30000), 2),  # Probable Salary Total
-        round(random.uniform(500, 10000), 2),   # Transfers to Savings
-        round(random.uniform(5, 50), 2),        # Monthly Account Fees
-        round(random.uniform(10, 300), 2),      # Service Charges
-        round(random.uniform(0, 50), 2),        # Penalty Interest
-        round(random.uniform(0, 200), 2),       # Unpaid Item Charges
-        round(random.uniform(0, 100), 2),       # Honouring Charges
-        random.randint(0, 90),                  # Days Balance Below Zero
-        round(random.uniform(-2000, 500), 2),   # Min Balance
-        round(random.uniform(500, 20000), 2),   # Max Balance
-        round(random.uniform(-5000, 10000), 2), # Net Income
-        round(random.uniform(0.2, 0.9), 2),     # Salary Ratio
-        round(random.uniform(0.0, 0.5), 2),     # Savings Ratio
-        round(random.uniform(0.4, 1.2), 2),     # Expense Ratio
-        round(random.uniform(1000, 15000), 2),  # Balance Stability
-        round(random.uniform(0, 500), 2),       # Total Fees
-    ]
-
-# Gradio input layout
-inputs = [
-    gr.Number(label="Total Credits"),
-    gr.Number(label="Total Debits"),
-    gr.Number(label="Probable Salary Total"),
-    gr.Number(label="Transfers to Savings Total"),
-    gr.Number(label="Monthly Account Fees"),
-    gr.Number(label="Service Charges"),
-    gr.Number(label="Penalty Interest"),
-    gr.Number(label="Unpaid Item Charges"),
-    gr.Number(label="Honouring Charges"),
-    gr.Number(label="Days Balance Below Zero"),
-    gr.Number(label="Min Balance Recorded"),
-    gr.Number(label="Max Balance Recorded"),
-    gr.Number(label="Net Income"),
-    gr.Number(label="Salary Ratio"),
-    gr.Number(label="Savings Ratio"),
-    gr.Number(label="Expense Ratio"),
-    gr.Number(label="Balance Stability"),
-    gr.Number(label="Total Fees")
-]
-
-# Launch app
-with gr.Blocks() as demo:
-    gr.Markdown("## Credit Score Regressor")
-    gr.Markdown("Enter or randomize financial metrics to predict a numeric credit score and interpretation.")
-
-    with gr.Row():
-        input_components = [gr.Number(label=inp.label) for inp in inputs]
+@app.post("/predict", tags=["Prediction"], summary="Predict a credit score")
+def predict_score(data: CreditFeatures):
+    """
+    Receives financial data, predicts a credit score, and returns the score
+    along with its rating and interpretation.
+    """
+    # Convert the incoming Pydantic model to a dictionary, using aliases
+    # to match the model's expected column names.
+    features_dict = data.model_dump(by_alias=True)
     
-    predict_btn = gr.Button("Predict Credit Score")
-    random_btn = gr.Button("🎲 Randomize Inputs")
-    output = gr.Textbox(label="Prediction", lines=4)
+    # Create a pandas DataFrame from the dictionary.
+    # The index=[0] is important as the model expects a 2D array-like input.
+    features_df = pd.DataFrame(features_dict, index=[0])
 
-    predict_btn.click(fn=predict_score, inputs=input_components, outputs=output)
-    random_btn.click(fn=randomize_inputs, inputs=[], outputs=input_components)
+    # Predict the score using the loaded model
+    score = model.predict(features_df)[0]
+    
+    # Get the human-readable interpretation
+    rating, interpretation = get_interpretation(score)
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
-    demo.launch(server_name="0.0.0.0", server_port=port)
+    # Return the structured JSON response
+    return {
+        "predicted_score": round(score),
+        "rating": rating,
+        "interpretation": interpretation
+    }
