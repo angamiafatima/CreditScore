@@ -40,6 +40,10 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.get("/")
+async def root():
+    return {"message": "Credit Score API is running. Visit /docs for API documentation."}
+    
 # Load Model and Interpretation Data 
 # These files are loaded once when the application starts up for efficiency.
 model = joblib.load("credit_score_regressor.pkl")
